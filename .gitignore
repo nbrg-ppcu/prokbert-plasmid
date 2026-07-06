@@ -1,0 +1,15 @@
+.idea
+.DS_Store
+._*
+
+# Python generated files
+__pycache__/
+*.py[cod]
+*$py.class
+.ipynb_checkpoints/
+
+# Slurm/job logs
+*.out
+*.err
+slurm-*.out
+slurm-*.err
