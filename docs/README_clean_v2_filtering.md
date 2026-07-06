@@ -1,23 +1,11 @@
-# Clean-v2 NCBI Plasmid Filtering
+# NCBI Plasmid Filtering
 
-This document summarizes the data sources, sequence processing, chromosome-containment QC, and filtering rules used to build the clean-v2 all-original NCBI plasmid database.
+This document summarizes the data sources, sequence processing, chromosome-containment QC, and filtering rules used to build the NCBI plasmid database.
 
-Output database:
-
-```text
-/project/c_evolm/training_datasets/phage_db/NCBI/plasmid_training_db/clean_v2_len2k_4mb_nochrom_broadhq20
-```
 
 ## Data Sources And Processing
 
-NCBI assembly metadata came from the Hugging Face dataset:
-
-```python
-load_dataset("neuralbioinfo/ncbidatasets", "ncbi_assembly_summary", split="train")
-```
-
-Representative plasmid-containing assemblies were downloaded as NCBI Datasets genome ZIP packages. ZIPs were kept as final raw storage and extracted only temporarily while building the sequence database. Assembly sequences were loaded with ProkBERT `load_sequence()`, reverse-orientation rows were discarded, and only forward rows were kept.
-
+Representative plasmid-containing assemblies were downloaded as NCBI Datasets genome ZIP packages. 
 NCBI genome sequence-report metadata was used to identify plasmid sequence records. Sequence DB rows labelled as plasmid became candidate plasmids; non-plasmid rows from complete-genome assemblies were used to build a chromosome reference for containment QC.
 
 | Item | Count |
@@ -277,66 +265,3 @@ Clustering algorithm:
 6. Do not reassign already assigned plasmids.
 
 This makes the representative the longest available plasmid in each local similarity group. The procedure is deterministic for a fixed edge table and length table.
-
-Materialized NR outputs:
-
-| Output | Description |
-|---|---|
-| `skani/int_edges__skani_minaf80.tsv` | Raw skani triangle edge table after skani's `--min-af 80` filter. |
-| `skani/edges.best__skani_minaf80_ani99_afsym97p5_affull99_afpart95.parquet` | Locally filtered best edges used for clustering. |
-| `clusters/reps__skani_minaf80_ani99_afsym97p5_affull99_afpart95.tsv` | One row per NR representative. |
-| `clusters/clusters__skani_minaf80_ani99_afsym97p5_affull99_afpart95.tsv` | One row per cluster member, including representative self rows. |
-| `nr/tables/all_nr_plasmids.feather` | Representative plasmid metadata and sequences. |
-| `nr/tables/cluster_member_to_rep.feather` | Mapping from every clean-v2 plasmid to its NR representative. |
-| `nr/tables/nr_plasmid_to_assembly_links.feather` | Collapsed host/assembly evidence: all member assembly links inherited by the representative. |
-| `nr/fasta/all_nr_plasmids.fasta` | Representative-only FASTA with headers equal to representative `PL...` IDs. |
-| `manifests/nr_plasmid_database_manifest.json` | Final counts, paths, parameters, and validation status. |
-
-Clean-v2 NR status at the time this README was written:
-
-| Metric | Value |
-|---|---:|
-| Clean-v2 plasmids prepared for NR | 126,056 |
-| Per-plasmid skani FASTA records prepared | 126,056 |
-| NR representative plasmids | pending `manifests/nr_plasmid_database_manifest.json` |
-| NR cluster member rows | pending `manifests/nr_plasmid_database_manifest.json` |
-| NR collapsed assembly-link rows | pending `manifests/nr_plasmid_database_manifest.json` |
-| NR unique assemblies | pending `manifests/nr_plasmid_database_manifest.json` |
-
-Expected NR validation checks:
-
-| Check | Expected result |
-|---|---|
-| Every clean-v2 plasmid appears exactly once as a cluster member. | pass |
-| Every representative has a representative self row. | pass |
-| Every representative sequence is present in the source FASTA. | pass |
-| Collapsed assembly links contain representative IDs and preserve all member assembly evidence. | pass |
-| Representative FASTA headers are exactly representative `PL...` IDs. | pass |
-
-## Caveat: Chromosome-Side Confidence
-
-Chromosome evidence is currently trusted from NCBI `Complete Genome` / `latest` assemblies and non-plasmid sequence DB rows. This is conservative but not perfect: some chromosome targets may be small, near plasmid-sized, or affected by assembly/annotation issues.
-
-Future sensitivity analysis can recompute chromosome-containment calls using stricter chromosome-target criteria, for example:
-
-```text
-chromosome_contig_length >= max(1 Mb, 3 * plasmid_length)
-chromosome_contig_length >= max(2 Mb, 5 * plasmid_length)
-```
-
-If the same plasmids remain excluded under these stricter target filters, the chromosome-like classification is more robust.
-
-## Main Output Files
-
-```text
-fasta/plasmids.clean_v2.fasta
-fasta/plasmids.clean_v2.mmi
-metadata/plasmids.clean_v2.tsv
-metadata/plasmid_to_host_assemblies.full.tsv
-metadata/excluded_plasmids.tsv
-tables/plasmid_nr_input.feather
-seqrecords/fasta_files.txt
-qc/filter_union_summary.tsv
-qc/filter_reason_category_counts.tsv
-qc/length_threshold_filter_summary.tsv
-```
